@@ -121,6 +121,66 @@ export default function Home() {
     return false;
   };
 
+  const loadDefaultLayout = async (): Promise<boolean> => {
+    try {
+      const response = await fetch('/default_layout.json');
+      if (!response.ok) {
+        console.warn(`Failed to fetch default_layout.json: ${response.statusText}`);
+        return false;
+      }
+      const importedData: ImportedItem[] = await response.json();
+      if (!Array.isArray(importedData)) {
+        console.warn("Default layout data is not an array");
+        return false;
+      }
+      const newItems: DraggableItem[] = importedData.map((item: ImportedItem, index: number) => {
+        const baseProps = {
+          id: item.id || Date.now() + index,
+          currentTop: item.currentTop || '0px',
+          currentLeft: item.currentLeft || '0px',
+          zIndex: item.zIndex || 0,
+        };
+        if (item.type === 'text') {
+          const textItem = item as ImportedTextItem;
+          return {
+            ...baseProps,
+            type: 'text',
+            content: textItem.content || 'New Text',
+            fontSize: textItem.fontSize || 16,
+            color: textItem.color || '#FFFFFF',
+            currentRotation: textItem.currentRotation || 0,
+          } as DraggableText;
+        } else {
+          const imgItem = item as ImportedImageItem;
+          const visualDims = calculateVisualDimensions(imgItem.intrinsicWidth || 256, imgItem.intrinsicHeight || 256);
+          return {
+            ...baseProps,
+            type: 'image',
+            src: imgItem.src || '',
+            alt: imgItem.alt || 'imported image',
+            width: imgItem.intrinsicWidth || 256,
+            height: imgItem.intrinsicHeight || 256,
+            visualWidth: imgItem.visualWidth || visualDims.width,
+            visualHeight: imgItem.visualHeight || visualDims.height,
+            currentAnimation: imgItem.currentAnimation || 'none',
+            currentRotation: imgItem.currentRotation || 0,
+            mirroredX: imgItem.mirroredX || false,
+            mirroredY: imgItem.mirroredY || false,
+          } as DraggableImage;
+        }
+      }).filter(it => (it.type === 'image' && it.src) || it.type === 'text');
+
+      setItems(newItems, { recordHistory: false });
+      setHistoryStack([newItems]);
+      setCurrentHistoryIndex(0);
+      console.log("Default layout loaded from /default_layout.json");
+      return true;
+    } catch (error) {
+      console.error("Failed to load default layout from /default_layout.json:", error);
+      return false;
+    }
+  };
+
   useEffect(() => {
     setIsLoading(true);
     const fetchInitialData = async () => {
@@ -129,12 +189,21 @@ export default function Home() {
         if (!response.ok) throw new Error(`Failed to fetch images: ${response.statusText}`);
         const data: ApiImageData[] = await response.json();
         setAvailableImages(data);
-        if (!loadLayoutFromLocalStorage()) {
-          setItems([], { recordHistory: true });
+
+        const loadedFromLocalStorage = loadLayoutFromLocalStorage();
+        if (!loadedFromLocalStorage) {
+          const loadedFromDefault = await loadDefaultLayout();
+          if (!loadedFromDefault) {
+            setItems([], { recordHistory: true }); // Start with empty if both fail
+            setHistoryStack([[]]);
+            setCurrentHistoryIndex(0);
+          }
         }
       } catch (error) {
-        console.error("Error fetching available images:", error);
-        setItems([], { recordHistory: true });
+        console.error("Error fetching available images or loading initial layout:", error);
+        setItems([], { recordHistory: true }); // Start with empty on error
+        setHistoryStack([[]]);
+        setCurrentHistoryIndex(0);
       }
       setIsLoading(false);
     };
