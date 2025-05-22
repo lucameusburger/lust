@@ -85,6 +85,7 @@ export default function Home() {
               content: textItem.content || 'New Text',
               fontSize: textItem.fontSize || 16,
               color: textItem.color || '#FFFFFF',
+              currentRotation: textItem.currentRotation || 0,
             } as DraggableText;
           } else {
             const imgItem = item as ImportedImageItem;
@@ -408,6 +409,7 @@ export default function Home() {
                 content: textItem.content || 'New Text',
                 fontSize: textItem.fontSize || 16,
                 color: textItem.color || '#FFFFFF',
+                currentRotation: textItem.currentRotation || 0,
               } as DraggableText;
             } else {
               const imgItem = itemData as ImportedImageItem;
@@ -429,7 +431,7 @@ export default function Home() {
             }
           }).filter(it => (it.type === 'image' && it.src) || it.type === 'text');
 
-          setItems(newItems, { recordHistory: true });
+          setItems(newItems, { recordHistory: false });
           setHistoryStack([newItems]);
           setCurrentHistoryIndex(0);
           setContextMenuTriggerInfo(null);
@@ -558,6 +560,7 @@ export default function Home() {
         currentTop: `${y + window.scrollY}px`,
         currentLeft: `${x + window.scrollX}px`,
         zIndex: maxZ + 1,
+        currentRotation: 0,
       };
       return [...prevItems, newText];
     });
@@ -596,6 +599,14 @@ export default function Home() {
     ), { recordHistory: true });
   };
 
+  const handleChangeTextRotationInContextMenu = (itemId: number, rotation: number) => {
+    setItems(prevItems =>
+      prevItems.map(item =>
+        item.id === itemId && item.type === 'text' ? { ...item, currentRotation: rotation } : item
+      )
+    );
+  };
+
   const appContextMenuProps = {
     contextMenuTriggerInfo,
     availableImages,
@@ -612,6 +623,7 @@ export default function Home() {
     handleBringForward,
     handleSendBackward,
     handleSetEditingItem,
+    handleChangeTextRotationInContextMenu,
   };
 
   if (isLoading) {
@@ -744,6 +756,7 @@ export default function Home() {
                             width: 'auto',
                             height: 'auto',
                             fontFamily: 'var(--font-pt-serif)',
+                            transform: `rotate(${textItem.currentRotation}deg)`,
                           }}
                           onMouseDown={(e) => handleGrabHandleMouseDown(e, textItem.id, 'text')}
                           onDoubleClick={(e) => handleItemDoubleClick(e, textItem)}

@@ -33,6 +33,7 @@ interface AppContextMenuProps {
     handleBringForward: (itemId: number) => void;
     handleSendBackward: (itemId: number) => void;
     handleSetEditingItem?: (itemId: number | null) => void;
+    handleChangeTextRotationInContextMenu?: (itemId: number, rotation: number) => void;
 }
 
 export default function AppContextMenu({
@@ -51,7 +52,8 @@ export default function AppContextMenu({
     handleSendToBack,
     handleBringForward,
     handleSendBackward,
-    handleSetEditingItem
+    handleSetEditingItem,
+    handleChangeTextRotationInContextMenu
 }: AppContextMenuProps) {
 
     // Determine if this specific AppContextMenu instance should be active and render content.
@@ -210,6 +212,20 @@ export default function AppContextMenu({
                                         it.id === textItem.id && it.type === 'text' ? { ...it, fontSize: newSize } : it
                                     )
                                 );
+                            }}
+                            className={RDX_INPUT_CLASS}
+                        />
+                    </div>
+                    <div className="px-3 py-1.5 text-sm">
+                        <label htmlFor={`rotationSlider-text-${textItem.id}`} className="block mb-1 text-gray-300">Rotate: {textItem.currentRotation}°</label>
+                        <input
+                            type="range" id={`rotationSlider-text-${textItem.id}`}
+                            min="0" max="360"
+                            value={textItem.currentRotation}
+                            onChange={(ev) => {
+                                if (handleChangeTextRotationInContextMenu) {
+                                    handleChangeTextRotationInContextMenu(textItem.id, parseInt(ev.target.value, 10));
+                                }
                             }}
                             className={RDX_INPUT_CLASS}
                         />

@@ -25,6 +25,7 @@ export interface DraggableText {
   currentTop: string;
   currentLeft: string;
   zIndex: number;
+  currentRotation: number;
   // Optional: rotation, mirroring if desired for text later
   // currentRotation?: number;
   // mirroredX?: boolean;
@@ -67,6 +68,7 @@ export interface ImportedTextItem {
   currentTop?: string;
   currentLeft?: string;
   zIndex?: number;
+  currentRotation?: number;
 }
 
 export type ImportedItem = ImportedImageItem | ImportedTextItem;
