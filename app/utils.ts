@@ -37,7 +37,7 @@ export const imageWrapperClasses = (image: DraggableImage, isDragging: boolean, 
   }
   // Ensure getAnimationClass is available here or pass its result if it remains in page.tsx
   // For now, assuming getAnimationClass is also moved to utils or image.currentAnimation is directly used
-  return `image-wrapper-class absolute drop-shadow-lg drop-shadow-black/50 ${getAnimationClass(image.currentAnimation)} ${isDragging ? 'opacity-70' : 'hover:scale-105'} ${cursorClass} transition-transform duration-100 ease-in-out flex justify-center items-center`;
+  return `image-wrapper-class absolute drop-shadow-lg drop-shadow-black/50 ${getAnimationClass(image.currentAnimation)} ${isDragging ? 'opacity-70' : 'hover:opacity-50'} ${cursorClass} transition-transform duration-100 ease-in-out flex justify-center items-center`;
 };
 
 export const getTransformClasses = (mirroredX: boolean, mirroredY: boolean): string => {

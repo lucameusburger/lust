@@ -2,7 +2,7 @@
 
 import * as ContextMenu from '@radix-ui/react-context-menu';
 
-import { ApiImageData, ContextMenuTriggerState, DraggableImage } from '../types'; // Adjust path as needed
+import { ApiImageData, ContextMenuTriggerState, DraggableImage, DraggableItem, DraggableText } from '../types'; // Adjusted path and types
 
 import Image from 'next/image';
 
@@ -17,49 +17,68 @@ const RDX_INPUT_CLASS = "w-full h-2 bg-gray-600 rounded-lg appearance-none curso
 
 interface AppContextMenuProps {
     contextMenuTriggerInfo: ContextMenuTriggerState | null;
+    currentItem?: DraggableItem; // For item-specific menus, undefined for viewport menu
     availableImages: ApiImageData[];
-    images: DraggableImage[]; // For finding the current image
+    // items: DraggableItem[]; // Removed from destructuring, still in props type if needed later
     onCloseAutoFocus?: (event: Event) => void;
-    // Handlers - ensure all necessary handlers are passed or defined within if self-contained
     handleAddNewImageFromAvailable: (selectedImage: ApiImageData, x: number, y: number) => void;
-    handleDeleteImage: (imageId: number) => void;
-    setImages: React.Dispatch<React.SetStateAction<DraggableImage[]>>; // For size slider
-    handleChangeAnimation: (imageId: number, animation: 'none' | 'bounce' | 'spin') => void;
-    handleChangeRotationInContextMenu: (imageId: number, rotation: number) => void;
-    handleToggleMirrorInContextMenu: (imageId: number, axis: 'X' | 'Y') => void;
-    handleBringToFront: (imageId: number) => void;
-    handleSendToBack: (imageId: number) => void;
-    handleBringForward: (imageId: number) => void;
-    handleSendBackward: (imageId: number) => void;
+    handleAddNewTextElement: (x: number, y: number, content?: string, fontSize?: number, color?: string) => void;
+    handleDeleteItem: (itemId: number) => void;
+    setItems: React.Dispatch<React.SetStateAction<DraggableItem[]>>;
+    handleChangeAnimation: (itemId: number, animation: 'none' | 'bounce' | 'spin') => void;
+    handleChangeRotationInContextMenu: (itemId: number, rotation: number) => void;
+    handleToggleMirrorInContextMenu: (itemId: number, axis: 'X' | 'Y') => void;
+    handleBringToFront: (itemId: number) => void;
+    handleSendToBack: (itemId: number) => void;
+    handleBringForward: (itemId: number) => void;
+    handleSendBackward: (itemId: number) => void;
+    handleSetEditingItem?: (itemId: number | null) => void;
 }
 
 export default function AppContextMenu({
-    contextMenuTriggerInfo,
+    contextMenuTriggerInfo, // This is the global trigger state
+    currentItem, // This is the specific item this menu instance could be for (or undefined if viewport menu)
     availableImages,
-    images,
     onCloseAutoFocus = (e) => e.preventDefault(),
     handleAddNewImageFromAvailable,
-    handleDeleteImage,
-    setImages,
+    handleAddNewTextElement,
+    handleDeleteItem,
+    setItems,
     handleChangeAnimation,
     handleChangeRotationInContextMenu,
     handleToggleMirrorInContextMenu,
     handleBringToFront,
     handleSendToBack,
     handleBringForward,
-    handleSendBackward
+    handleSendBackward,
+    handleSetEditingItem
 }: AppContextMenuProps) {
 
-    if (!contextMenuTriggerInfo) return null;
+    // Determine if this specific AppContextMenu instance should be active and render content.
+    let isActive = false;
+    if (contextMenuTriggerInfo) {
+        if (currentItem) { // This is an item-specific context menu instance
+            isActive = contextMenuTriggerInfo.itemId === currentItem.id && contextMenuTriggerInfo.itemType === currentItem.type;
+        } else { // This is a viewport context menu instance
+            isActive = contextMenuTriggerInfo.itemId === null;
+        }
+    }
 
-    const { imageId, triggerX, triggerY } = contextMenuTriggerInfo;
-    const currentImage = imageId !== null ? images.find(img => img.id === imageId) : null;
+    if (!isActive) {
+        return null; // Don't render anything if this instance isn't the active one
+    }
 
-    // Viewport ContextMenu (Add Image)
-    if (imageId === null) {
+    // If active, proceed to render the correct menu content.
+    // The triggerX and triggerY for positioning are within contextMenuTriggerInfo.
+    const { triggerX, triggerY } = contextMenuTriggerInfo!;
+
+    // Viewport ContextMenu (Add Image or Add Text)
+    if (contextMenuTriggerInfo!.itemId === null) { // Viewport menu active
         return (
             <ContextMenu.Portal>
-                <ContextMenu.Content className={RDX_CONTENT_CLASS} alignOffset={5} onCloseAutoFocus={onCloseAutoFocus}>
+                <ContextMenu.Content className={RDX_CONTENT_CLASS} alignOffset={5} onCloseAutoFocus={onCloseAutoFocus}
+                // style={{ top: triggerY, left: triggerX }} // Radix handles positioning based on trigger
+                >
                     <ContextMenu.Sub>
                         <ContextMenu.SubTrigger className={RDX_SUB_TRIGGER_CLASS}>
                             Add Image
@@ -84,66 +103,137 @@ export default function AppContextMenu({
                             </ContextMenu.SubContent>
                         </ContextMenu.Portal>
                     </ContextMenu.Sub>
+                    <ContextMenu.Item
+                        className={RDX_ITEM_CLASS}
+                        onSelect={() => handleAddNewTextElement(triggerX, triggerY, "New Text", 24, "#FFFFFF")}
+                    >
+                        Add Text
+                    </ContextMenu.Item>
                 </ContextMenu.Content>
             </ContextMenu.Portal>
         );
     }
 
-    // Image-Specific ContextMenu
-    if (!currentImage) return null; // Should have a current image if imageId is not null
+    // Item-Specific ContextMenu - currentItem must exist if itemId was not null and matched.
+    if (!currentItem) return null; // Should be redundant due to isActive logic but good safeguard.
 
-    return (
-        <ContextMenu.Portal>
-            <ContextMenu.Content className={RDX_CONTENT_CLASS} alignOffset={5} onCloseAutoFocus={onCloseAutoFocus}>
-                <ContextMenu.Item className={RDX_ITEM_CLASS} onSelect={() => handleDeleteImage(currentImage.id)}>Delete</ContextMenu.Item>
-                <ContextMenu.Separator className={RDX_SEPARATOR_CLASS} />
-                <div className="px-3 py-1.5 text-sm">
-                    <label htmlFor={`sizeSlider-${currentImage.id}`} className="block mb-1 text-gray-300">Size: {currentImage.visualWidth}px</label>
-                    <input
-                        type="range" id={`sizeSlider-${currentImage.id}`}
-                        min="10" max="1024"
-                        value={currentImage.visualWidth}
-                        onChange={(ev) => {
-                            const newVisualWidth = parseInt(ev.target.value, 10);
-                            setImages(prevImages =>
-                                prevImages.map(img => {
-                                    if (img.id === currentImage.id) {
-                                        const aspectRatio = img.width / img.height;
-                                        return { ...img, visualWidth: newVisualWidth, visualHeight: Math.round(newVisualWidth / (aspectRatio || 1)) };
-                                    }
-                                    return img;
-                                })
-                            );
-                        }}
-                        className={RDX_INPUT_CLASS}
-                    />
-                </div>
-                <ContextMenu.Separator className={RDX_SEPARATOR_CLASS} />
-                <ContextMenu.Label className={RDX_LABEL_CLASS}>Animation</ContextMenu.Label>
-                <ContextMenu.Item className={RDX_ITEM_CLASS} onSelect={() => handleChangeAnimation(currentImage.id, 'none')}>None {currentImage.currentAnimation === 'none' && '✓'}</ContextMenu.Item>
-                <ContextMenu.Item className={RDX_ITEM_CLASS} onSelect={() => handleChangeAnimation(currentImage.id, 'bounce')}>Bounce {currentImage.currentAnimation === 'bounce' && '✓'}</ContextMenu.Item>
-                <ContextMenu.Item className={RDX_ITEM_CLASS} onSelect={() => handleChangeAnimation(currentImage.id, 'spin')}>Spin {currentImage.currentAnimation === 'spin' && '✓'}</ContextMenu.Item>
-                <ContextMenu.Separator className={RDX_SEPARATOR_CLASS} />
-                <ContextMenu.Label className={RDX_LABEL_CLASS}>Transform</ContextMenu.Label>
-                <div className="px-3 py-1.5 text-sm">
-                    <label htmlFor={`rotationSlider-${currentImage.id}`} className="block mb-1 text-gray-300">Rotate: {currentImage.currentRotation}°</label>
-                    <input
-                        type="range" id={`rotationSlider-${currentImage.id}`}
-                        min="0" max="360"
-                        value={currentImage.currentRotation}
-                        onChange={(ev) => handleChangeRotationInContextMenu(currentImage.id, parseInt(ev.target.value, 10))}
-                        className={RDX_INPUT_CLASS}
-                    />
-                </div>
-                <ContextMenu.Item className={RDX_ITEM_CLASS} onSelect={() => handleToggleMirrorInContextMenu(currentImage.id, 'X')}>Mirror X {currentImage.mirroredX ? '(On)' : '(Off)'}</ContextMenu.Item>
-                <ContextMenu.Item className={RDX_ITEM_CLASS} onSelect={() => handleToggleMirrorInContextMenu(currentImage.id, 'Y')}>Mirror Y {currentImage.mirroredY ? '(On)' : '(Off)'}</ContextMenu.Item>
-                <ContextMenu.Separator className={RDX_SEPARATOR_CLASS} />
-                <ContextMenu.Label className={RDX_LABEL_CLASS}>Layering</ContextMenu.Label>
-                <ContextMenu.Item className={RDX_ITEM_CLASS} onSelect={() => handleBringToFront(currentImage.id)}>Bring to Front</ContextMenu.Item>
-                <ContextMenu.Item className={RDX_ITEM_CLASS} onSelect={() => handleSendToBack(currentImage.id)}>Send to Back</ContextMenu.Item>
-                <ContextMenu.Item className={RDX_ITEM_CLASS} onSelect={() => handleBringForward(currentImage.id)}>Bring Forward</ContextMenu.Item>
-                <ContextMenu.Item className={RDX_ITEM_CLASS} onSelect={() => handleSendBackward(currentImage.id)}>Send Backward</ContextMenu.Item>
-            </ContextMenu.Content>
-        </ContextMenu.Portal>
+    const commonItemOptions = (
+        <>
+            <ContextMenu.Item className={RDX_ITEM_CLASS} onSelect={() => handleDeleteItem(currentItem.id)}>Delete</ContextMenu.Item>
+            <ContextMenu.Separator className={RDX_SEPARATOR_CLASS} />
+            <ContextMenu.Label className={RDX_LABEL_CLASS}>Layering</ContextMenu.Label>
+            <ContextMenu.Item className={RDX_ITEM_CLASS} onSelect={() => handleBringToFront(currentItem.id)}>Bring to Front</ContextMenu.Item>
+            <ContextMenu.Item className={RDX_ITEM_CLASS} onSelect={() => handleSendToBack(currentItem.id)}>Send to Back</ContextMenu.Item>
+            <ContextMenu.Item className={RDX_ITEM_CLASS} onSelect={() => handleBringForward(currentItem.id)}>Bring Forward</ContextMenu.Item>
+            <ContextMenu.Item className={RDX_ITEM_CLASS} onSelect={() => handleSendBackward(currentItem.id)}>Send Backward</ContextMenu.Item>
+        </>
     );
+
+    if (currentItem.type === 'image') {
+        const imageItem = currentItem as DraggableImage;
+        return (
+            <ContextMenu.Portal>
+                <ContextMenu.Content className={RDX_CONTENT_CLASS} alignOffset={5} onCloseAutoFocus={onCloseAutoFocus}>
+                    {commonItemOptions}
+                    <ContextMenu.Separator className={RDX_SEPARATOR_CLASS} />
+                    <div className="px-3 py-1.5 text-sm">
+                        <label htmlFor={`sizeSlider-${imageItem.id}`} className="block mb-1 text-gray-300">Size: {imageItem.visualWidth}px</label>
+                        <input
+                            type="range" id={`sizeSlider-${imageItem.id}`}
+                            min="10" max="1024"
+                            value={imageItem.visualWidth}
+                            onChange={(ev) => {
+                                const newVisualWidth = parseInt(ev.target.value, 10);
+                                setItems(prevItems =>
+                                    prevItems.map(it => {
+                                        if (it.id === imageItem.id && it.type === 'image') {
+                                            const aspectRatio = it.width / it.height;
+                                            return { ...it, visualWidth: newVisualWidth, visualHeight: Math.round(newVisualWidth / (aspectRatio || 1)) };
+                                        }
+                                        return it;
+                                    })
+                                );
+                            }}
+                            className={RDX_INPUT_CLASS}
+                        />
+                    </div>
+                    <ContextMenu.Separator className={RDX_SEPARATOR_CLASS} />
+                    <ContextMenu.Label className={RDX_LABEL_CLASS}>Animation</ContextMenu.Label>
+                    <ContextMenu.Item className={RDX_ITEM_CLASS} onSelect={() => handleChangeAnimation(imageItem.id, 'none')}>None {imageItem.currentAnimation === 'none' && '✓'}</ContextMenu.Item>
+                    <ContextMenu.Item className={RDX_ITEM_CLASS} onSelect={() => handleChangeAnimation(imageItem.id, 'bounce')}>Bounce {imageItem.currentAnimation === 'bounce' && '✓'}</ContextMenu.Item>
+                    <ContextMenu.Item className={RDX_ITEM_CLASS} onSelect={() => handleChangeAnimation(imageItem.id, 'spin')}>Spin {imageItem.currentAnimation === 'spin' && '✓'}</ContextMenu.Item>
+                    <ContextMenu.Separator className={RDX_SEPARATOR_CLASS} />
+                    <ContextMenu.Label className={RDX_LABEL_CLASS}>Transform</ContextMenu.Label>
+                    <div className="px-3 py-1.5 text-sm">
+                        <label htmlFor={`rotationSlider-${imageItem.id}`} className="block mb-1 text-gray-300">Rotate: {imageItem.currentRotation}°</label>
+                        <input
+                            type="range" id={`rotationSlider-${imageItem.id}`}
+                            min="0" max="360"
+                            value={imageItem.currentRotation}
+                            onChange={(ev) => handleChangeRotationInContextMenu(imageItem.id, parseInt(ev.target.value, 10))}
+                            className={RDX_INPUT_CLASS}
+                        />
+                    </div>
+                    <ContextMenu.Item className={RDX_ITEM_CLASS} onSelect={() => handleToggleMirrorInContextMenu(imageItem.id, 'X')}>Mirror X {imageItem.mirroredX ? '(On)' : '(Off)'}</ContextMenu.Item>
+                    <ContextMenu.Item className={RDX_ITEM_CLASS} onSelect={() => handleToggleMirrorInContextMenu(imageItem.id, 'Y')}>Mirror Y {imageItem.mirroredY ? '(On)' : '(Off)'}</ContextMenu.Item>
+                </ContextMenu.Content>
+            </ContextMenu.Portal>
+        );
+    } else if (currentItem.type === 'text') {
+        const textItem = currentItem as DraggableText;
+        return (
+            <ContextMenu.Portal>
+                <ContextMenu.Content className={RDX_CONTENT_CLASS} alignOffset={5} onCloseAutoFocus={onCloseAutoFocus}>
+                    {commonItemOptions}
+                    <ContextMenu.Separator className={RDX_SEPARATOR_CLASS} />
+                    <ContextMenu.Label className={RDX_LABEL_CLASS}>Text Properties</ContextMenu.Label>
+                    <ContextMenu.Item
+                        className={RDX_ITEM_CLASS}
+                        onSelect={() => {
+                            if (handleSetEditingItem && contextMenuTriggerInfo && contextMenuTriggerInfo.itemId !== null) {
+                                handleSetEditingItem(contextMenuTriggerInfo.itemId);
+                            }
+                        }}
+                    >
+                        Edit Text...
+                    </ContextMenu.Item>
+                    <div className="px-3 py-1.5 text-sm">
+                        <label htmlFor={`fontSizeSlider-${textItem.id}`} className="block mb-1 text-gray-300">Font Size: {textItem.fontSize}px</label>
+                        <input
+                            type="range" id={`fontSizeSlider-${textItem.id}`}
+                            min="8" max="128"
+                            value={textItem.fontSize}
+                            onChange={(ev) => {
+                                const newSize = parseInt(ev.target.value, 10);
+                                setItems(prevItems =>
+                                    prevItems.map(it =>
+                                        it.id === textItem.id && it.type === 'text' ? { ...it, fontSize: newSize } : it
+                                    )
+                                );
+                            }}
+                            className={RDX_INPUT_CLASS}
+                        />
+                    </div>
+                    <div className="px-3 py-1.5 text-sm">
+                        <label htmlFor={`textColorInput-${textItem.id}`} className="block mb-1 text-gray-300">Color:</label>
+                        <input
+                            type="color" id={`textColorInput-${textItem.id}`}
+                            value={textItem.color}
+                            onChange={(ev) => {
+                                const newColor = ev.target.value;
+                                setItems(prevItems =>
+                                    prevItems.map(it =>
+                                        it.id === textItem.id && it.type === 'text' ? { ...it, color: newColor } : it
+                                    )
+                                );
+                            }}
+                            className="w-full h-8 p-0 border-none cursor-pointer rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                    </div>
+                </ContextMenu.Content>
+            </ContextMenu.Portal>
+        );
+    }
+
+    return null;
 } 
