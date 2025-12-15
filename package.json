@@ -11,7 +11,7 @@
   "dependencies": {
     "@radix-ui/react-context-menu": "^2.2.15",
     "image-size": "^2.0.2",
-    "next": "15.3.8",
+    "next": "^15.5.9",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
@@ -25,5 +25,6 @@
     "eslint-config-next": "15.3.2",
     "tailwindcss": "^4",
     "typescript": "^5"
-  }
+  },
+  "packageManager": "pnpm@10.25.0+sha512.5e82639027af37cf832061bcc6d639c219634488e0f2baebe785028a793de7b525ffcd3f7ff574f5e9860654e098fe852ba8ac5dd5cefe1767d23a020a92f501"
 }
